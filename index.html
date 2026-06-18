@@ -59,7 +59,7 @@
     <div class="container">
         <!-- Slideshow uses uploaded images present at repo root -->
         <div id="slideshow" class="slideshow" aria-live="polite">
-          <img src="45B95E4D-3B24-4420-B488-E9ACE93D4B25.JPG" class="slide" alt="slide 1">
+          <img src="45B95E4D-3B24-4420-B488-E9ACE93D4B25.JPG" class="slide visible" alt="slide 1">
           <img src="IMG_2650.jpeg" class="slide" alt="slide 2">
           <img src="IMG_3762.jpeg" class="slide" alt="slide 3">
           <img src="IMG_4109.PNG" class="slide" alt="slide 4">
@@ -177,6 +177,17 @@
         showNext();
         setInterval(showNext, displayTime + pauseBetween);
       })();
+
+      // Fallback: ensure at least one slide visible if slideshow script doesn't run
+      setTimeout(()=>{
+        try {
+          const any = document.querySelector('.slide.visible');
+          if (!any) {
+            const first = document.querySelector('.slide');
+            if (first) first.classList.add('visible');
+          }
+        } catch(e) { console.warn('slideshow fallback failed', e); }
+      }, 500);
 
       // UI controls for manual play/pause/volume
       document.getElementById('playBtn').addEventListener('click', ()=>{ if (player) player.playVideo(); });
