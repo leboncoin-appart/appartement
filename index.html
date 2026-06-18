@@ -5,33 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appartement</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+      /* Cacher la vidéo YouTube mais laisser l'audio jouer */
+      .yt-player { width: 0; height: 0; border: 0; position: absolute; left: -9999px; }
+      .controls { margin-top: 1rem; }
+    </style>
 </head>
 <body>
     <div class="container">
         <img id="trollImage" src="https://media.giphy.com/media/l0HlTy9x8FZo0XO1i/giphy.gif" alt="Troll" class="troll-image">
     </div>
     
-    <audio id="scareSound" autoplay>
-        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
-        Votre navigateur ne supporte pas l'audio.
-    </audio>
+    <!-- YouTube player (caché) utilisé pour lire l'audio de la vidéo demandée -->
+    <div id="player" class="yt-player"></div>
+
+    <div class="controls">
+      <button id="playBtn">Lecture</button>
+      <button id="pauseBtn">Pause</button>
+      <label>Volume <input id="volumeSlider" type="range" min="0" max="100" value="100"></label>
+    </div>
 
     <script>
-        // Lancer le son immédiatement
-        window.addEventListener('load', function() {
-            const audio = document.getElementById('scareSound');
-            audio.volume = 1.0;
-            audio.play().catch(function(error) {
-                console.log("Autoplay bloqué, cliquez n'importe où pour lancer le son");
-                document.addEventListener('click', function() {
-                    audio.play();
-                }, { once: true });
-            });
+      // ID vidéo YouTube fournie par l'utilisateur
+      const YOUTUBE_ID = 'RbASRYyIOac';
+
+      // Chargement de l'API IFrame de YouTube
+      let tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+
+      let player;
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+          height: '0',
+          width: '0',
+          videoId: YOUTUBE_ID,
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            modestbranding: 1,
+            rel: 0
+          },
+          events: {
+            'onReady': onPlayerReady
+          }
+        });
+      }
+
+      function onPlayerReady(event) {
+        // UI elements
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
+
+        playBtn.addEventListener('click', function() {
+          // Les navigateurs exigent souvent une interaction utilisateur pour démarrer l'audio
+          player.playVideo();
         });
 
-        // Ajouter un effet de shake à l'image
-        const image = document.getElementById('trollImage');
-        image.classList.add('shake');
+        pauseBtn.addEventListener('click', function() {
+          player.pauseVideo();
+        });
+
+        volumeSlider.addEventListener('input', function() {
+          const vol = parseInt(this.value, 10);
+          player.setVolume(vol);
+        });
+
+        // Défaut volume à 100
+        player.setVolume(100);
+      }
+
+      // Ajouter un effet de shake à l'image
+      const image = document.getElementById('trollImage');
+      image.classList.add('shake');
     </script>
 </body>
 </html>
