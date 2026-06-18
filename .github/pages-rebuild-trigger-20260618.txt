@@ -1,0 +1,5 @@
+Trigger GitHub Pages rebuild
+
+This file was added to force GitHub Pages to rebuild the site after the recent changes to index.html.
+
+Timestamp: 2026-06-18T11:21:00Z
