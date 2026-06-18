@@ -8,15 +8,69 @@
     <style>
       /* Cacher la vidéo YouTube mais laisser l'audio jouer */
       .yt-player { width: 0; height: 0; border: 0; position: absolute; left: -9999px; }
+
+      /* Slideshow container */
+      .slideshow { position: relative; width: 100%; max-width: 720px; height: 480px; margin: 0 auto; overflow: hidden; }
+      .slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: translate3d(0,0,0); }
+      .slide.visible { opacity: 1; z-index: 2; }
+
+      /* Lots of movement - entry animations */
+      @keyframes inFromLeft {
+        from { transform: translateX(-120%) rotate(-30deg) scale(0.8); opacity: 0; }
+        to   { transform: translateX(0)      rotate(0deg)    scale(1);   opacity: 1; }
+      }
+      @keyframes inFromRight {
+        from { transform: translateX(120%) rotate(30deg) scale(0.8); opacity: 0; }
+        to   { transform: translateX(0)     rotate(0deg)  scale(1);   opacity: 1; }
+      }
+      @keyframes inFromTop {
+        from { transform: translateY(-120%) rotate(-20deg) scale(0.8); opacity: 0; }
+        to   { transform: translateY(0)       rotate(0deg)     scale(1);   opacity: 1; }
+      }
+      @keyframes inFromBottom {
+        from { transform: translateY(120%) rotate(20deg) scale(0.8); opacity: 0; }
+        to   { transform: translateY(0)     rotate(0deg)  scale(1);   opacity: 1; }
+      }
+      @keyframes popRotate {
+        from { transform: scale(0.6) rotate(-90deg); opacity: 0; }
+        60%  { transform: scale(1.08) rotate(18deg); opacity: 1; }
+        to   { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+
+      /* Utility classes for animations */
+      .anim-left { animation: inFromLeft var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-right { animation: inFromRight var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-top { animation: inFromTop var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-bottom { animation: inFromBottom var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-pop { animation: popRotate var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+
+      /* subtle shadow for depth */
+      .slide::after { content: ''; position: absolute; inset: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.4); pointer-events: none; }
+
+      /* container responsiveness */
+      @media (max-width: 800px) { .slideshow { height: 60vh; } }
     </style>
 </head>
 <body>
     <div class="container">
-        <img id="trollImage" src="Capture d&#39;écran 2026-06-18 120214.png" alt="Troll" class="troll-image">
+        <!-- Slideshow replaces the single image. Add your images in assets/slideshow/slide1.png ... slide5.png -->
+        <div id="slideshow" class="slideshow" aria-live="polite">
+          <img src="assets/slideshow/slide1.png" class="slide" alt="slide 1">
+          <img src="assets/slideshow/slide2.png" class="slide" alt="slide 2">
+          <img src="assets/slideshow/slide3.png" class="slide" alt="slide 3">
+          <img src="assets/slideshow/slide4.png" class="slide" alt="slide 4">
+          <img src="assets/slideshow/slide5.png" class="slide" alt="slide 5">
+        </div>
     </div>
     
     <!-- YouTube player (caché) utilisé pour lire l'audio de la vidéo demandée -->
     <div id="player" class="yt-player"></div>
+
+    <div class="controls">
+      <button id="playBtn">Lecture</button>
+      <button id="pauseBtn">Pause</button>
+      <label>Volume <input id="volumeSlider" type="range" min="0" max="100" value="100"></label>
+    </div>
 
     <script>
       // ID vidéo YouTube fournie par l'utilisateur
@@ -66,9 +120,64 @@
         try { player.setVolume(100); } catch(e) { /* ignore */ }
       }
 
-      // Ajouter un effet de shake à l'image
-      const image = document.getElementById('trollImage');
-      image.classList.add('shake');
+      // --- Slideshow logic: lots of movement, random entries ---
+      (function(){
+        const container = document.getElementById('slideshow');
+        const slides = Array.from(container.querySelectorAll('.slide'));
+        if (!slides.length) return;
+
+        // helper to pick random animation class and duration
+        const animClasses = ['anim-left','anim-right','anim-top','anim-bottom','anim-pop'];
+        function randomAnim(el){
+          // pick a random animation and optionally random duration between 700ms and 1400ms
+          const cls = animClasses[Math.floor(Math.random()*animClasses.length)];
+          const dur = (700 + Math.floor(Math.random()*800)) + 'ms';
+          el.style.setProperty('--dur', dur);
+          return cls;
+        }
+
+        let current = -1;
+        const displayTime = 1600; // time each slide stays visible before next
+        const pauseBetween = 300; // slight gap before next anim
+
+        // Preload images to avoid flicker
+        slides.forEach(s => { const i = new Image(); i.src = s.src; });
+
+        function showNext(){
+          // remove visible class from current
+          if (current >= 0) {
+            const prev = slides[current];
+            prev.classList.remove('visible');
+            // clear animation classes
+            prev.classList.remove('anim-left','anim-right','anim-top','anim-bottom','anim-pop');
+            prev.style.zIndex = 1;
+          }
+          current = (current + 1) % slides.length;
+          const next = slides[current];
+
+          // choose an animation and apply
+          const anim = randomAnim(next);
+          next.classList.add('visible');
+          next.style.zIndex = 3;
+          // force reflow then add animation class
+          void next.offsetWidth;
+          next.classList.add(anim);
+
+          // schedule hiding after displayTime
+          setTimeout(()=>{
+            // keep visible class for exit, then next will remove it
+          }, displayTime);
+        }
+
+        // Start the loop
+        showNext();
+        setInterval(showNext, displayTime + pauseBetween);
+      })();
+
+      // UI controls for manual play/pause/volume
+      document.getElementById('playBtn').addEventListener('click', ()=>{ if (player) player.playVideo(); });
+      document.getElementById('pauseBtn').addEventListener('click', ()=>{ if (player) player.pauseVideo(); });
+      document.getElementById('volumeSlider').addEventListener('input', function(){ const vol = parseInt(this.value,10); if (player) player.setVolume(vol); });
     </script>
 </body>
 </html>
