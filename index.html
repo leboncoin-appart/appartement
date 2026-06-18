@@ -16,36 +16,36 @@
 
       /* Lots of movement - entry animations */
       @keyframes inFromLeft {
-        from { transform: translateX(-120%) rotate(-30deg) scale(0.8); opacity: 0; }
+        from { transform: translateX(-140%) rotate(-40deg) scale(0.7); opacity: 0; }
         to   { transform: translateX(0)      rotate(0deg)    scale(1);   opacity: 1; }
       }
       @keyframes inFromRight {
-        from { transform: translateX(120%) rotate(30deg) scale(0.8); opacity: 0; }
+        from { transform: translateX(140%) rotate(40deg) scale(0.7); opacity: 0; }
         to   { transform: translateX(0)     rotate(0deg)  scale(1);   opacity: 1; }
       }
       @keyframes inFromTop {
-        from { transform: translateY(-120%) rotate(-20deg) scale(0.8); opacity: 0; }
+        from { transform: translateY(-140%) rotate(-30deg) scale(0.7); opacity: 0; }
         to   { transform: translateY(0)       rotate(0deg)     scale(1);   opacity: 1; }
       }
       @keyframes inFromBottom {
-        from { transform: translateY(120%) rotate(20deg) scale(0.8); opacity: 0; }
+        from { transform: translateY(140%) rotate(30deg) scale(0.7); opacity: 0; }
         to   { transform: translateY(0)     rotate(0deg)  scale(1);   opacity: 1; }
       }
       @keyframes popRotate {
-        from { transform: scale(0.6) rotate(-90deg); opacity: 0; }
-        60%  { transform: scale(1.08) rotate(18deg); opacity: 1; }
+        from { transform: scale(0.5) rotate(-120deg); opacity: 0; }
+        60%  { transform: scale(1.12) rotate(24deg); opacity: 1; }
         to   { transform: scale(1) rotate(0deg); opacity: 1; }
       }
 
       /* Utility classes for animations */
-      .anim-left { animation: inFromLeft var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
-      .anim-right { animation: inFromRight var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
-      .anim-top { animation: inFromTop var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
-      .anim-bottom { animation: inFromBottom var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
-      .anim-pop { animation: popRotate var(--dur,900ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-left { animation: inFromLeft var(--dur,700ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-right { animation: inFromRight var(--dur,700ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-top { animation: inFromTop var(--dur,700ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-bottom { animation: inFromBottom var(--dur,700ms) cubic-bezier(.2,.8,.2,1) both; }
+      .anim-pop { animation: popRotate var(--dur,700ms) cubic-bezier(.2,.8,.2,1) both; }
 
       /* subtle shadow for depth */
-      .slide::after { content: ''; position: absolute; inset: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.4); pointer-events: none; }
+      .slide::after { content: ''; position: absolute; inset: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.45); pointer-events: none; }
 
       /* container responsiveness */
       @media (max-width: 800px) { .slideshow { height: 60vh; } }
@@ -53,6 +53,10 @@
       /* simple controls layout */
       .controls { text-align: center; margin-top: 12px; }
       .controls button { margin: 0 6px; padding: 6px 10px; }
+
+      /* Unmute hint when autoplay muted */
+      #unmuteHint { display: none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; background: rgba(0,0,0,0.7); color: #fff; padding: 8px 12px; border-radius: 6px; z-index: 9999; }
+      #unmuteHint.show { display: block; }
     </style>
 </head>
 <body>
@@ -73,11 +77,14 @@
     <div class="controls">
       <button id="playBtn">Lecture</button>
       <button id="pauseBtn">Pause</button>
+      <button id="unmuteBtn">Activer le son</button>
       <label>Volume <input id="volumeSlider" type="range" min="0" max="100" value="100"></label>
     </div>
 
+    <div id="unmuteHint">Lecture démarrée en muet. Cliquez sur "Activer le son" pour entendre l'audio.</div>
+
     <script>
-      // ID vidéo YouTube fournie par l'utilisateur
+      // ID vidéo YouTube fournie par l'utilisateur (mise à jour pour autoplay)
       const YOUTUBE_ID = 'gwuwLAdTTPk';
 
       // Chargement de l'API IFrame de YouTube
@@ -88,7 +95,7 @@
       let player;
       let pendingPlay = false;
 
-      // Si l'utilisateur clique avant que le player ne soit prêt, on marque pendingPlay
+      // If user interacts before player ready, mark pendingPlay (keeps previous behavior)
       document.addEventListener('click', function() {
         if (player && typeof player.playVideo === 'function') {
           player.playVideo();
@@ -103,7 +110,7 @@
           width: '0',
           videoId: YOUTUBE_ID,
           playerVars: {
-            autoplay: 0,
+            autoplay: 1,   // try to autoplay
             controls: 0,
             modestbranding: 1,
             rel: 0
@@ -115,44 +122,60 @@
       }
 
       function onPlayerReady(event) {
-        // Si l'utilisateur a déjà cliqué, lancer la lecture maintenant
-        if (pendingPlay) {
+        // Try to autoplay. Many browsers block autoplay with sound; so we start muted to ensure playback.
+        try {
+          player.mute();
           player.playVideo();
-          pendingPlay = false;
+          // indicate to user that playback started muted
+          document.getElementById('unmuteHint').classList.add('show');
+          // attempt to unmute shortly after (will fail without gesture on many browsers)
+          setTimeout(()=>{
+            try { player.unMute(); player.setVolume(100); document.getElementById('unmuteHint').classList.remove('show'); } catch(e) { /* ignored */ }
+          }, 1200);
+        } catch(e) {
+          // fallback to previous behavior: wait for user click
+          if (pendingPlay) {
+            player.playVideo();
+            pendingPlay = false;
+          }
         }
-        // Défaut volume à 100
-        try { player.setVolume(100); } catch(e) { /* ignore */ }
+        // ensure volume slider value synced
+        try { player.setVolume(parseInt(document.getElementById('volumeSlider').value,10)); } catch(e) { /* ignore */ }
       }
 
-      // --- Slideshow logic: lots of movement, random entries ---
+      // Unmute button for user to enable sound explicitly
+      document.getElementById('unmuteBtn').addEventListener('click', ()=>{
+        try { player.unMute(); player.setVolume(parseInt(document.getElementById('volumeSlider').value,10)); } catch(e) { /* ignore */ }
+        document.getElementById('unmuteHint').classList.remove('show');
+      });
+
+      // --- Slideshow logic: faster and more intense movements ---
       (function(){
         const container = document.getElementById('slideshow');
         const slides = Array.from(container.querySelectorAll('.slide'));
         if (!slides.length) return;
 
-        // helper to pick random animation class and duration
+        // helper to pick random animation class and duration (faster)
         const animClasses = ['anim-left','anim-right','anim-top','anim-bottom','anim-pop'];
         function randomAnim(el){
-          // pick a random animation and optionally random duration between 700ms and 1400ms
           const cls = animClasses[Math.floor(Math.random()*animClasses.length)];
-          const dur = (700 + Math.floor(Math.random()*800)) + 'ms';
+          // faster durations between 400ms and 1000ms
+          const dur = (400 + Math.floor(Math.random()*600)) + 'ms';
           el.style.setProperty('--dur', dur);
           return cls;
         }
 
         let current = -1;
-        const displayTime = 1600; // time each slide stays visible before next
-        const pauseBetween = 300; // slight gap before next anim
+        const displayTime = 900; // shorter time for quick slideshow
+        const pauseBetween = 200; // small gap
 
         // Preload images to avoid flicker
         slides.forEach(s => { const i = new Image(); i.src = s.src; });
 
         function showNext(){
-          // remove visible class from current
           if (current >= 0) {
             const prev = slides[current];
             prev.classList.remove('visible');
-            // clear animation classes
             prev.classList.remove('anim-left','anim-right','anim-top','anim-bottom','anim-pop');
             prev.style.zIndex = 1;
           }
@@ -163,25 +186,24 @@
           const anim = randomAnim(next);
           next.classList.add('visible');
           next.style.zIndex = 3;
-          // force reflow then add animation class
           void next.offsetWidth;
           next.classList.add(anim);
 
           // schedule hiding after displayTime
           setTimeout(()=>{
-            // keep visible class for exit, then next will remove it
+            // keep visible; next call will clear
           }, displayTime);
         }
 
-        // Start the loop
+        // Start the loop quickly with no initial delay
         showNext();
         setInterval(showNext, displayTime + pauseBetween);
       })();
 
       // UI controls for manual play/pause/volume
-      document.getElementById('playBtn').addEventListener('click', ()=>{ if (player) player.playVideo(); });
-      document.getElementById('pauseBtn').addEventListener('click', ()=>{ if (player) player.pauseVideo(); });
-      document.getElementById('volumeSlider').addEventListener('input', function(){ const vol = parseInt(this.value,10); if (player) player.setVolume(vol); });
+      document.getElementById('playBtn').addEventListener('click', ()=>{ try { if (player) player.playVideo(); } catch(e) {} });
+      document.getElementById('pauseBtn').addEventListener('click', ()=>{ try { if (player) player.pauseVideo(); } catch(e) {} });
+      document.getElementById('volumeSlider').addEventListener('input', function(){ const vol = parseInt(this.value,10); try { if (player) player.setVolume(vol); } catch(e) {} });
     </script>
 </body>
 </html>
